@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日历看板 · 北京亦庄经海路</title>
+<style>
+  /* ========== 全局重置 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    color: #e2e8f0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  body { display: flex; flex-direction: column; position: relative; }
+
+  /* ========== 背景层（风景图 + 半透明蒙版） ========== */
+  .bg-layer {
+    position: fixed; inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 0;
+    transition: background-image 1.2s ease-in-out, opacity 1.2s;
+    opacity: 0;
+  }
+  .bg-layer.show { opacity: 1; }
+  .bg-overlay {
+    position: fixed; inset: 0;
+    /* background: rgba(15,23,42,.35);*/
+    z-index: 1;
+    pointer-events: none;
+  }
+  .bg-credit {
+    position: fixed; right: 10px; bottom: 6px;
+    font-size: 11px; color: rgba(226,232,240,.5);
+    z-index: 1; pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8);
+  }
+
+  /* ========== 第一部分：横向头部 30% ========== */
+  .header {
+    height: 30vh; flex: 0 0 30vh;
+    display: flex;
+    border-bottom: 1px solid rgba(30,41,59,.6);
+    background: rgba(15,23,42,.55);
+    position: relative; z-index: 2;
+    backdrop-filter: blur(8px);
+  }
+  .header > section {
+    flex: 1; padding: 14px 18px;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    border-right: 1px solid #1e293b;
+    overflow: hidden;
+  }
+  .header > section:last-child { border-right: none; }
+
+  /* 名言区 */
+  .quote-block { text-align: center; }
+  .quote-text {
+    font-size: 24px; line-height: 1.4;
+    color: #f8fafc; font-weight: 500;
+    margin-bottom: 8px;
+    text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(0,0,0,.6);
+  }
+  .quote-meta {
+    font-size: 14px; color: #cbd5e1;
+    font-style: italic;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  }
+  .quote-tag {
+    position: relative; top: 0px; left: 12px;
+    font-size: 12px; color: #64748b;
+    letter-spacing: 2px;
+  }
+  .quote-wrap { position: relative; width: 100%; }
+
+  /* 时间区 */
+  .datetime-block { text-align: center; }
+  .dt-time {
+    font-size: 36px; font-weight: 700;
+    color: #38bdf8; letter-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 6px;
+    text-shadow: 0 0 12px rgba(56,189,248,.5), 0 2px 6px rgba(0,0,0,.9);
+  }
+  .dt-date {
+    font-size: 36px; font-weight: 600;
+    color: #f1f5f9; letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,.9);
+  }
+  .dt-sec { color: #fbbf24; }
+
+  /* 定时文字区 */
+  .schedule-block { text-align: center; position: relative; }
+  .sched-title {
+    font-size: 12px; color: #64748b;
+    letter-spacing: 2px; margin-bottom: 10px;
+  }
+  .sched-content {
+    font-size: 24px; font-weight: 600;
+    color: #fde68a; line-height: 1.4;
+    padding: 8px 12px;
+    border: 1px dashed rgba(251,191,36,.4);
+    border-radius: 8px;
+    background: rgba(251,191,36,.08);
+    min-height: 60px;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%;
+    text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.6);
+  }
+  .sched-meta {
+    font-size: 12px; color: #cbd5e1; margin-top: 8px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  }
+  .sched-empty {
+    color: #475569; font-size: 18px; font-style: italic;
+  }
+
+  /* ========== 第二、三部分：横向 7:3 ========== */
+  .main {
+    flex: 1; display: flex;
+    position: relative; z-index: 2;
+  }
+
+  /* 第二部分：日历 (70%) */
+  .calendar-section {
+    flex: 7; padding: 8px;
+    display: flex; flex-direction: column;
+    border-right: 1px solid rgba(30,41,59,.6);
+    overflow: hidden;
+    background: rgba(11,20,36,.45);
+    backdrop-filter: blur(6px);
+  }
+  .cal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid #1e293b;
+  }
+  .cal-title {
+    font-size: 18px; font-weight: 700; color: #e2e8f0;
+  }
+  .cal-title .loc { color: #38bdf8; margin-left: 8px; font-size: 14px; }
+  .cal-config-hint {
+    font-size: 12px; color: #64748b;
+  }
+  .cal-config-hint code {
+    background: #1e293b; padding: 2px 6px;
+    border-radius: 4px; color: #fbbf24;
+  }
+
+  /* 当天天气概要 */
+  .today-weather {
+    display: flex; align-items: center; gap: 16px;
+    padding: 8px 12px; margin-bottom: 10px;
+    background: linear-gradient(90deg, rgba(56,189,248,.08), transparent);
+    border-radius: 8px;
+  }
+  .tw-icon { font-size: 32px; }
+  .tw-info { display: flex; flex-direction: column; gap: 2px; }
+  .tw-temp { font-size: 22px; font-weight: 700; color: #f8fafc; }
+  .tw-text { font-size: 13px; color: #94a3b8; }
+
+  /* 近7天日历表格（行=小时，列=天） */
+  .cal-table-wrap {
+    flex: 1; overflow: auto;
+    border: 1px solid rgba(30,41,59,.6);
+    border-radius: 8px;
+    background: rgba(11,20,36,.4);
+  }
+  .cal-table-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+  .cal-table-wrap::-webkit-scrollbar-thumb { background: rgba(51,65,85,.7); border-radius: 3px; }
+  .cal-table {
+    display: grid;
+    grid-template-columns: 44px repeat(7, minmax(120px, 1fr));
+    grid-auto-rows: auto;
+    gap: 1px;
+    background: rgba(30,41,59,.5);
+    min-width: 100%;
+    min-height: 60%;
+    align-content: stretch;
+  }
+  /* 表头：左上角 + 7天 */
+  .cal-th {
+    padding: 4px 6px;
+    background: rgba(15,23,42,.7);
+    color: #e2e8f0;
+    font-size: 12px;
+    text-align: center;
+    position: sticky; top: 0; z-index: 2;
+    border-bottom: 1px solid rgba(30,41,59,.6);
+  }
+  .cal-th.corner { background: rgba(11,20,36,.7); }
+  .cal-th.today {
+    background: linear-gradient(180deg, rgba(14,165,233,.65) 0%, rgba(15,23,42,.7) 100%);
+    color: #fde68a;
+  }
+  .cal-th .th-week { font-size: 11px; color: #94a3b8; }
+  .cal-th.today .th-week { color: #fde68a; }
+  .cal-th .th-date { font-size: 14px; font-weight: 700; }
+  .cal-th .th-weather { font-size: 10px; color: #7dd3fc; margin-top: 2px; }
+  .cal-th .th-tmaxmin { font-size: 10px; color: #cbd5e1; }
+  /* 行：小时标签 + 7个格子 */
+  .cal-h-label {
+    background: rgba(15,23,42,.7);
+    color: #94a3b8;
+    font-size: 11px;
+    text-align: center;
+    padding: 1px 0;
+    font-variant-numeric: tabular-nums;
+    border-right: 1px solid rgba(30,41,59,.6);
+    position: sticky; left: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 14px;
+  }
+  .cal-cell {
+    background: rgba(30,41,59,.55);
+    padding: 4px 5px;
+    font-size: 11px;
+    color: #fbbf24;
+    line-height: 1.2;
+    overflow: hidden;
+    position: relative;
+    transition: background .2s;
+    display: flex; align-items: center;
+    min-height: 33px;
+  }
+  .cal-cell:hover { background: rgba(41,53,72,.8); }
+  .cal-cell.today-col { background: rgba(26,37,64,.75); }
+  .cal-cell.now {
+    background: rgba(251,191,36,.25);
+    box-shadow: inset 0 0 0 1px #fbbf24;
+  }
+  .cal-cell .ev-time {
+    color: #fca5a5; font-weight: 600;
+    font-size: 10px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8);
+  }
+  .cal-cell .ev-sum {
+    color: #f1f5f9; display: block;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8);
+  }
+  .cal-cell.empty {
+    color: rgba(51,65,85,.7);
+    justify-content: center;
+  }
+  .cal-cell.empty::before { content: "—"; }
+
+  /* 第三部分：天气 (30%) */
+  .weather-section {
+    flex: 3; padding: 16px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    background: rgba(11,20,36,.45);
+    backdrop-filter: blur(6px);
+  }
+  .w-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(30,41,59,.6);
+  }
+  .w-title { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+  .w-loc { font-size: 12px; color: #64748b; }
+
+  .w-current {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px;
+  }
+  .w-curr-temp {
+    font-size: 42px; font-weight: 800; color: #fbbf24;
+    line-height: 1;
+  }
+  .w-curr-text { font-size: 16px; color: #f1f5f9; }
+  .w-curr-feel { font-size: 12px; color: #94a3b8; }
+
+  .w-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px; margin-bottom: 12px;
+  }
+  .w-item {
+    padding: 6px 8px; background: rgba(30,41,59,.55);
+    border-radius: 6px;
+  }
+  .w-item .lbl { font-size: 11px; color: #64748b; margin-right: 6px;}
+  .w-item .val { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+
+  .w-24h-title {
+    font-size: 13px; color: #94a3b8;
+    margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  .w-24h-list {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .w-24h-list::-webkit-scrollbar { width: 4px; }
+  .w-24h-list::-webkit-scrollbar-thumb { background: rgba(51,65,85,.7); border-radius: 2px; }
+  .w-24h-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 1px 8px; background: rgba(30,41,59,.55);
+    border-radius: 6px; font-size: 12px;
+  }
+  .w-24h-item .h-time { color: #94a3b8; width: 44px; flex-shrink: 0; }
+  .w-24h-item .h-icon { width: 18px; text-align: center; }
+  .w-24h-item .h-text { flex: 1; color: #cbd5e1; }
+  .w-24h-item .h-temp { color: #fbbf24; font-weight: 600; width: 36px; text-align: right; }
+  .w-24h-item .h-pop { color: #38bdf8; width: 40px; text-align: right; font-size: 11px; }
+
+  /* 通用：加载/错误提示 */
+  .loading { color: #64748b; font-size: 14px; font-style: italic; }
+  .err { color: #f87171; font-size: 12px; }
+</style>
+</head>
+<body>
+  <!-- 背景层 -->
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="bg-overlay"></div>
+  <div class="bg-credit" id="bgCredit"></div>
+
+  <!-- ========== 第一部分：横向头部 30% ========== -->
+  <div class="header">
+    <!-- 功能1：名言名句 -->
+    <section class="quote-block">
+      <div class="quote-wrap">
+        <span class="quote-tag">名 言 名 句</span>
+        <div class="quote-text" id="quoteText">载入中...</div>
+        <div class="quote-meta" id="quoteMeta">— 一言 —</div>
+      </div>
+    </section>
+
+    <!-- 功能2：日期时间 -->
+    <section class="datetime-block">
+      <div class="dt-time" id="dtTime">--:--:--</div>
+      <div class="dt-date" id="dtDate">星期 — 月 日</div>
+    </section>
+
+    <!-- 功能3：定时展示文字 -->
+    <section class="schedule-block">
+      <div class="sched-title">定 时 展 示</div>
+      <div class="sched-content" id="schedContent">
+        <span class="sched-empty">无定时内容</span>
+      </div>
+      <div class="sched-meta" id="schedMeta"></div>
+    </section>
+  </div>
+
+  <!-- ========== 第二、三部分：横向 7:3 ========== -->
+  <div class="main">
+    <!-- 第二部分：日历 -->
+    <section class="calendar-section">
+      <div class="cal-table-wrap">
+        <div class="cal-table" id="calGrid"></div>
+      </div>
+    </section>
+
+    <!-- 第三部分：天气 -->
+    <section class="weather-section">
+      <div class="w-current">
+        <div class="w-curr-temp" id="wCurrTemp">--°</div>
+        <div>
+          <div class="w-curr-text" id="wCurrText">--</div>
+          <div class="w-curr-feel" id="wCurrFeel">体感 --°</div>
+        </div>
+      </div>
+      <div class="w-grid" id="wGrid">
+        <!-- <div class="w-item"><span class="lbl">湿度</span><span class="val" id="wHumidity">--</span></div> -->
+        <div class="w-item"><span class="lbl">风向风速</span><span class="val" id="wWind">--</span></div>
+        <!-- <div class="w-item"><span class="lbl">降水量</span><span class="val" id="wPrecip">--</span></div> -->
+        <div class="w-item"><span class="lbl">降水概率</span><span class="val" id="wPop">--</span></div>
+        <div class="w-item"><span class="lbl">最高/最低</span><span class="val" id="wMaxMin">--</span></div>
+        <div class="w-item"><span class="lbl">日出/日落</span><span class="val" id="wSun">--</span></div>
+      </div>
+      <div class="w-24h-title">
+        <span>未来 24 小时</span>
+        <span style="color:#64748b">时间 / 天气 / 温度 / 降水率</span>
+      </div>
+      <div class="w-24h-list" id="w24hList">
+        <div class="loading">天气数据加载中...</div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* =========================================================================
+ *  配置区 —— 所有可调参数集中在此，请按需修改
+ * ========================================================================= */
+const CONFIG = {
+  /* ----- 背景：风景图轮播 -----
+   *  说明：使用 wp.upx8.com 免费壁纸API（无需Key、支持CORS、风景分类）
+   *    primary  : wp.upx8.com 风景壁纸 JSON API（每分钟换一张，限流60次/分钟）
+   *    fallback : Lorem Picsum 直链（主源失败时降级，CORS 支持良好）
+   *  主源返回 JSON: { code:200, data:{ url, title, source } }
+   * ---------------------------------------------------------------- */
+  background: {
+    intervalMs: 60 * 1000,                 // 每分钟换一张（主源限流60次/分钟，刚好够用）
+    // 主源：wp.upx8.com 风景分类，JSON格式，1920x1080
+    primary: "https://wp.upx8.com/api.php?format=json&category=nature&resolution=1920x1080",
+    primaryParser: (json)=>{
+      try{
+        // 返回结构：{ code:200, data:{ url, title, source } }
+        const d = json.data || json;
+        if(d && d.url){
+          return { url: d.url, credit: `风景壁纸 - ${d.title || ""} (${d.source || "wp.upx8"})` };
+        }
+        return null;
+      }catch(e){ return null; }
+    },
+    // 降级源：Lorem Picsum 直链（CORS 友好，无 Key）
+    fallback: "https://picsum.photos/1920/1080",
+    fallbackCredit: "Lorem Picsum"
+  },
+
+  /* ----- 第一部分 / 功能1：名言名句轮播（一言API） ----- */
+  quote: {
+    intervalMs: 60 * 60 * 1000,   // 每 1 小时更新一次
+    // 一言 API 分类参数：c=d 文学, c=i 诗词, c=k 录, c=a 动画(去掉以免出现日文)
+    url: "https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json",
+    fallback: [
+      { hitokoto: "天行健，君子以自强不息。", from_who: "《周易》", from: "周易·乾卦" },
+      { hitokoto: "路漫漫其修远兮，吾将上下而求索。", from_who: "屈原", from: "离骚" },
+      { hitokoto: "不积跬步，无以至千里；不积小流，无以成江海。", from_who: "荀子", from: "劝学" }
+    ]
+  },
+
+  /* ----- 第一部分 / 功能2：日期时间（本地系统时间） ----- */
+  datetime: {
+    updateIntervalMs: 1000   // 实时显示时分秒 → 每秒刷新；若想每分钟可改为 60000
+  },
+
+  /* ----- 第一部分 / 功能3：定时展示文字 -----
+   *  每条配置字段：
+   *    content   : 显示文字
+   *    weekStart : 起始星期（1=周一 … 7=周日）
+   *    weekEnd   : 结束星期（含）
+   *    timeStart : 起始时间 HH:MM
+   *    timeEnd   : 结束时间 HH:MM
+   *  匹配规则：当前星期/时间落入区间即展示；多配置命中时按顺序取第一条
+   * ---------------------------------------------------------------- */
+  schedule: [
+    { content: "郝凯起床洗漱，7点前出发上学", weekStart: 1, weekEnd: 5, timeStart: "07:00", timeEnd: "09:00" },
+    { content: "准备接郝凯放学，最迟17点出发",       weekStart: 1, weekEnd: 5, timeStart: "16:30", timeEnd: "17:00" },
+    { content: "郝凯回家，17点30分开始写家庭作业",       weekStart: 1, weekEnd: 5, timeStart: "17:00", timeEnd: "17:30" },
+    { content: "郝凯写作业，等待妈妈回家检查",       weekStart: 1, weekEnd: 5, timeStart: "17:30", timeEnd: "19:00" },
+    { content: "郝凯妈妈检查作业",       weekStart: 1, weekEnd: 5, timeStart: "19:00", timeEnd: "19:30" },
+    { content: "郝凯完成学习机作业，交给妈妈检查",       weekStart: 1, weekEnd: 5, timeStart: "19:30", timeEnd: "21:00" },
+    { content: "郝凯装书包，洗漱睡觉",       weekStart: 1, weekEnd: 5, timeStart: "21:00", timeEnd: "21:30" },
+    { content: "周末愉快！复习和预习才是学习的捷径！",           weekStart: 6, weekEnd: 7, timeStart: "00:00", timeEnd: "22:00" },
+    { content: "周末了，也要早点休息！",           weekStart: 6, weekEnd: 7, timeStart: "22:00", timeEnd: "23:59" }
+  ],
+
+  /* ----- 铃音（定时展示文字时间开始时触发） -----
+   *  enabled   : 总开关（false 关闭铃音）
+   *  style     : "piano" 钢琴和弦（C5-E5-G5 柔和正弦波） | "ding" 短叮咚 | "bird" 鸟鸣
+   *  volume    : 0~1，0.15 柔和不吵
+   *  duration  : 总时长（秒），默认 5
+   *  触发时机：进入新调度项的开始时刻；页面加载时若已在某调度项中，不会响
+   * ---------------------------------------------------------------- */
+  chime: {
+    enabled: true,
+    style: "piano",
+    volume: 0.15,
+    duration: 5
+  },
+
+  /* ----- 第二部分：日历 -----
+   *  icalUrl        : 在此粘贴你 iCloud 日历的公开 iCal/.ics 链接（先留空，仅显示近7天）
+   *                   获取方式：iCloud 日历 → 共享日历 → 公开日历 → 复制 URL（webcal:// 改为 https://）
+   *                   注意：纯浏览器请求 iCloud 的 .ics 会有跨域限制，建议：
+   *                       ① 本地直接打开 html 时浏览器会拦截 → 推荐使用 CORS 代理(如下 corsProxy)
+   *                       ② 或将 .ics 文件下载到本地同目录后填相对路径
+   *  corsProxy     : 跨域代理前缀（留空则不使用代理；推荐 https://corsproxy.io/?url= ）
+   *  hourStart/hourEnd : 只展示该时段内的日历事件（0~23）
+   * ---------------------------------------------------------------- */
+  calendar: {
+    icalUrl: "https://p231-caldav.icloud.com.cn/published/2/MTY2MzQ5NzI3NTAxNjYzNKz2ChlVFrsQsjwME9A4dfX1YINWTH5mQmSbBewT3L_m00KJDEsiU9JADDd5s7f65vlG7J-0DQapzxrzKfdG1eE",
+    corsProxy: "https://corsproxy.io/?url=",
+    hourStart: 7,
+    hourEnd: 22,
+    daysCount: 7
+  },
+
+  /* ----- 第三部分：天气（和风天气） -----
+   *  apiKey    : 在 https://dev.qweather.com/ 注册免费账号 → 控制台创建应用 → 复制 API Key
+   *              留空将使用内置静态演示数据
+   *  apiHost   : 免费订阅用 devapi.qweather.com；如果是标准订阅用其对应 host
+   *  location  : "经度,纬度"（北京亦庄经海路：经海路站 ≈ 116.596, 39.795）
+   *  locationName : 显示用名称
+   * ---------------------------------------------------------------- */
+  weather: {
+    apiKey: "",
+    apiHost: "https://devapi.qweather.com",
+    location: "116.596,39.795",
+    locationName: "北京亦庄经海路",
+    updateIntervalMs: 10 * 60 * 1000,   // 10 分钟刷新一次
+    // 内置演示数据（apiKey 为空时使用）
+    fallback: {
+      now: { text: "晴", temp: "22", feelsLike: "20", humidity: "45", windDir: "东北", windScale: "2", windSpeed: "8", precip: "0.0", icon: "100" },
+      today: { tempMax: "26", tempMin: "14" },
+      daily: Array.from({length:7}, (_,i)=>{
+        const texts = ["晴","多云","阴","小雨","晴","晴","多云"];
+        const icons = ["100","101","104","305","100","100","101"];
+        return { text: texts[i], icon: icons[i], tempMax: String(24-i%3), tempMin: String(13+i%3) };
+      }),
+      sun: { sunrise: "06:18", sunset: "17:42" },
+      hourly: Array.from({length:24}, (_,i)=>{
+        const h = (new Date().getHours()+i) % 24;
+        const texts = ["晴","多云","晴","小雨"];
+        const icons = ["100","101","100","305"];
+        return { fxTime: `2025-01-01T${pad(h)}:00+08:00`, text: texts[i%4], icon: icons[i%4], temp: String(18+Math.round(4*Math.sin(i/4))), pop: i%3===0?"30":"0" };
+      })
+    }
+  }
+};
+
+/* =========================================================================
+ *  工具函数
+ * ========================================================================= */
+const $ = id => document.getElementById(id);
+function pad(n){ return String(n).padStart(2,"0"); }
+function fmtWeek(d){
+  return ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][d.getDay()];
+}
+// 和风天气图标 → emoji
+function qweatherIcon(code){
+  code = String(code);
+  const map = {
+    "100":"☀️","101":"🌤️","102":"⛅","103":"☁️","104":"阴",
+    "150":"🌙","151":"🌙","152":"🌙",
+    "300":"🌧️","301":"🌧️","302":"⛈️","303":"⛈️","304":"🌩️","305":"🌧️","306":"🌧️","307":"🌨️","308":"🌧️","309":"🌧️","310":"暴雨","311":"暴雨","312":"暴雪","313":"雨夹雪","314":"小雨","315":"中雨","316":"大雨","317":"暴雨","318":"大暴雨","399":"雨",
+    "400":"🌨️","401":"🌨️","402":"❄️","403":"❄️","404":"雨夹雪","405":"雨夹雪","406":"🌨️","407":"🌨️","408":"小雪","409":"中雪","410":"大雪","499":"雪",
+    "500":"🌫️","501":"🌫️","502":"🌫️","503":"扬沙","504":"沙尘","507":"沙尘","508":"强沙尘","509":"浮尘","510":"浮尘","511":"雾","512":"浓雾","513":"大雾","514":"特强雾","515":"强浓雾",
+    "900":"🔥","901":"寒冷","999":"未知"
+  };
+  return map[code] || "🌤️";
+}
+
+/* =========================================================================
+ *  第一部分 / 功能1：名言名句轮播
+ * ========================================================================= */
+let quoteFallbackIdx = 0;
+async function fetchQuote(){
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 5000);
+    const res = await fetch(CONFIG.quote.url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const d = await res.json();
+    return { hitokoto: d.hitokoto, from_who: d.from_who || d.creator || "佚名", from: d.from || "" };
+  }catch(e){
+    // 网络失败 → 用内置名言
+    const f = CONFIG.quote.fallback[quoteFallbackIdx++ % CONFIG.quote.fallback.length];
+    return f;
+  }
+}
+async function refreshQuote(){
+  const q = await fetchQuote();
+  $("quoteText").textContent = q.hitokoto;
+  // 用户要求附带作者和写作日期，一言 API 没有写作日期字段，所以展示"作者《出处》"
+  const author = q.from_who ? q.from_who : "佚名";
+  const src = q.from ? `《${q.from}》` : "";
+  $("quoteMeta").textContent = `— ${author} ${src}`;
+}
+
+/* =========================================================================
+ *  第一部分 / 功能2：日期时间（本地系统时间）
+ * ========================================================================= */
+function refreshDatetime(){
+  const d = new Date();
+  const hh = pad(d.getHours()), mm = pad(d.getMinutes()), ss = pad(d.getSeconds());
+  $("dtTime").innerHTML = `${hh}<span class="dt-sec">:</span>${mm}<span class="dt-sec">:</span>${ss}`;
+  // 第二行：星期 + X月X日
+  const week = fmtWeek(d);
+  $("dtDate").textContent = `${week}  ${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+/* =========================================================================
+ *  第一部分 / 功能3：定时展示文字（按周 + 按时段）
+ * ========================================================================= */
+function nowMinutes(str){ // "HH:MM" → 分钟数
+  const [h,m] = str.split(":").map(Number);
+  return h*60 + m;
+}
+// 调度项唯一键（用于检测切换）
+function schedKey(cfg){
+  return `${cfg.content}|${cfg.weekStart}-${cfg.weekEnd}|${cfg.timeStart}-${cfg.timeEnd}`;
+}
+// 全局：上次命中的调度项键（首次启动为 null，避免加载即响）
+let lastSchedKey = null;
+
+// 铃音合成：Web Audio API
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ console.warn("AudioContext 不可用：", e); }
+  }
+  return audioCtx;
+}
+function playChime(){
+  const cfg = CONFIG.chime;
+  if(!cfg.enabled) return;
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  // 浏览器自动播放策略：上下文可能处于 suspended，尝试恢复
+  if(ctx.state === "suspended"){ ctx.resume().catch(()=>{}); }
+
+  const vol = cfg.volume;
+  const totalDur = cfg.duration;
+  const now = ctx.currentTime;
+
+  // 钢琴风格：3个柔和正弦音 C5(523) E5(659) G5(784)，间隔1秒，每个衰减1.2秒
+  // 总时长约 4.5秒，符合"5秒以内"
+  const styles = {
+    piano: {
+      notes: [523.25, 659.25, 783.99],
+      type: "sine",
+      spacing: 1.0,
+      decay: 1.3,
+      attack: 0.02
+    },
+    ding: {
+      notes: [880, 1108.73],   // A5, C#6 - 叮咚
+      type: "triangle",
+      spacing: 0.35,
+      decay: 0.8,
+      attack: 0.005
+    },
+    bird: {
+      // 用快速颤音模拟鸟鸣
+      notes: [2200, 2400, 2200, 2600, 2200],
+      type: "sine",
+      spacing: 0.12,
+      decay: 0.15,
+      attack: 0.005
+    }
+  };
+  const s = styles[cfg.style] || styles.piano;
+  // 鸟鸣重复几次以填充总时长
+  const reps = cfg.style === "bird" ? Math.max(1, Math.floor(totalDur / (s.notes.length * s.spacing + 0.5))) : 1;
+
+  for(let rep=0; rep<reps; rep++){
+    s.notes.forEach((freq, i)=>{
+      const start = now + rep * (s.notes.length * s.spacing + 0.5) + i * s.spacing;
+      if(start - now > totalDur) return;   // 不超过总时长
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = s.type;
+      osc.frequency.value = freq;
+      // ADSR包络：快速起音 + 指数衰减
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + s.attack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + s.decay);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + s.decay + 0.05);
+    });
+  }
+}
+
+function refreshSchedule(){
+  const d = new Date();
+  // JS: 周日=0 → 转成 ISO 周一=1…周日=7
+  const week = d.getDay()===0 ? 7 : d.getDay();
+  const nowM = d.getHours()*60 + d.getMinutes();
+  let hit = null, hitIdx = -1;
+  for(let i=0; i<CONFIG.schedule.length; i++){
+    const cfg = CONFIG.schedule[i];
+    const ws = cfg.weekStart, we = cfg.weekEnd;
+    // 处理跨周末区间（如 weekStart=6 weekEnd=7 即周末；如 weekStart=5 weekEnd=2 表示周五到周二）
+    let inWeek;
+    if(ws <= we) inWeek = (week>=ws && week<=we);
+    else inWeek = (week>=ws || week<=we);
+    const s = nowMinutes(cfg.timeStart), e = nowMinutes(cfg.timeEnd);
+    const inTime = (nowM>=s && nowM<=e);
+    if(inWeek && inTime){ hit = cfg; hitIdx = i; break; }
+  }
+  const $c = $("schedContent"), $m = $("schedMeta");
+  if(hit){
+    $c.innerHTML = "";
+    const span = document.createElement("span");
+    span.textContent = hit.content;
+    $c.appendChild(span);
+    $m.textContent = `周${["一","二","三","四","五","六","日"][hit.weekStart-1]}—周${["日","一","二","三","四","五","六"][hit.weekEnd===7?0:hit.weekEnd]} · ${hit.timeStart}~${hit.timeEnd}`;
+    // 检测是否进入新的调度项 → 触发响铃（首次不响）
+    const k = schedKey(hit);
+    if(lastSchedKey !== null && lastSchedKey !== k){
+      playChime();
+    }
+    lastSchedKey = k;
+  }else{
+    $c.innerHTML = '<span class="sched-empty">当前时段无定时内容</span>';
+    $m.textContent = "";
+    // 离开调度项时也更新键，便于下次进入新项时响铃
+    lastSchedKey = null;
+  }
+}
+
+/* =========================================================================
+ *  第二部分：近 7 天日历 + iCal 事件 + 当天天气
+ * ========================================================================= */
+// 简易 iCal 解析：抽取 VEVENT 的 DTSTART/SUMMARY
+function parseICal(text){
+  const events = [];
+  const re = /BEGIN:VEVENT([\s\S]*?)END:VEVENT/g;
+  let m;
+  while((m = re.exec(text)) !== null){
+    const block = m[1];
+    const get = key => {
+      const r = new RegExp("^"+key+"[^\\n]*", "m").exec(block);
+      return r ? r[0].split(":").slice(1).join(":").trim() : "";
+    };
+    let dt = get("DTSTART");
+    let sum = get("SUMMARY");
+    if(!dt || !sum) continue;
+    // DTSTART;TZID=...:20250101T090000  →  20250101T090000
+    dt = dt.split(":").pop();
+    // 转成 Date
+    let y = +dt.slice(0,4), mo = +dt.slice(4,6)-1, da = +dt.slice(6,8);
+    let h = 0, mi = 0;
+    if(dt.length >= 13){ h = +dt.slice(9,11); mi = +dt.slice(11,13); }
+    events.push({ date: new Date(y,mo,da,h,mi,0), summary: sum });
+  }
+  return events;
+}
+async function loadICalEvents(){
+  if(!CONFIG.calendar.icalUrl) return [];
+  
+  try{
+    const url = CONFIG.calendar.corsProxy
+      ? CONFIG.calendar.corsProxy + encodeURIComponent(CONFIG.calendar.icalUrl)
+      : CONFIG.calendar.icalUrl;
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 8000);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const text = await res.text();
+    return parseICal(text);
+  }catch(e){
+    console.warn("iCal 加载失败：", e.message);
+    return [];
+  }
+}
+
+// 渲染近 7 天日历（表格化：行=小时，列=天）
+async function renderCalendar(weatherData){
+  const grid = $("calGrid");
+  grid.innerHTML = "";
+  const today = new Date(); today.setHours(0,0,0,0);
+  const events = await loadICalEvents();
+  const hStart = CONFIG.calendar.hourStart, hEnd = CONFIG.calendar.hourEnd;
+  const days = CONFIG.calendar.daysCount;
+  const nowHour = new Date().getHours();
+  const nowDate = new Date(); nowDate.setHours(0,0,0,0);
+
+  // 第一行：左上角空白 + 7天表头
+  const corner = document.createElement("div");
+  corner.className = "cal-th corner";
+  corner.textContent = "时\\日";
+  grid.appendChild(corner);
+
+  const dayDates = [];
+  for(let i=0; i<days; i++){
+    const d = new Date(today); d.setDate(d.getDate()+i);
+    dayDates.push(d);
+    const isToday = d.getTime() === nowDate.getTime();
+    const th = document.createElement("div");
+    th.className = "cal-th" + (isToday ? " today" : "");
+    let weatherHtml = "";
+    if(weatherData && weatherData.daily && weatherData.daily[i]){
+      const dw = weatherData.daily[i];
+      weatherHtml = `<div class="th-weather">${qweatherIcon(dw.icon)} ${dw.text}</div>
+                     <div class="th-tmaxmin">${dw.tempMax}° / ${dw.tempMin}°</div>`;
+    }
+    th.innerHTML = `
+      <div class="th-week">${fmtWeek(d)}</div>
+      <div class="th-date">${d.getMonth()+1}/${d.getDate()}</div>
+      ${weatherHtml}`;
+    grid.appendChild(th);
+  }
+
+  // 每小时一行
+  for(let h=hStart; h<=hEnd; h++){
+    // 行首小时标签
+    const lbl = document.createElement("div");
+    lbl.className = "cal-h-label";
+    lbl.textContent = pad(h) + ":00";
+    grid.appendChild(lbl);
+
+    // 7天该小时的格子
+    for(let i=0; i<days; i++){
+      const d = dayDates[i];
+      const isToday = d.getTime() === nowDate.getTime();
+      const isNow = isToday && h === nowHour;
+      // 找出该天该小时的事件
+      const cellEvents = events.filter(e=>{
+        const ed = new Date(e.date); ed.setHours(0,0,0,0);
+        return ed.getTime() === d.getTime() && e.date.getHours() === h;
+      });
+      const cell = document.createElement("div");
+      cell.className = "cal-cell"
+        + (isToday ? " today-col" : "")
+        + (isNow ? " now" : "")
+        + (cellEvents.length ? "" : " empty");
+      if(cellEvents.length){
+        cell.innerHTML = cellEvents.map(ev=>{
+          const hh = pad(ev.date.getHours()), mm = pad(ev.date.getMinutes());
+          return `<span class="ev-time">${hh}:${mm}</span> <span class="ev-sum">${ev.summary}</span>`;
+        }).join("<br>");
+      }
+      grid.appendChild(cell);
+    }
+  }
+}
+
+/* =========================================================================
+ *  第三部分：天气（和风天气 + 24h）
+ * ========================================================================= */
+async function fetchQWeather(endpoint, params){
+  const url = new URL(CONFIG.weather.apiHost + endpoint);
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 8000);
+  const res = await fetch(url.toString(), { signal: ctrl.signal });
+  clearTimeout(t);
+  const d = await res.json();
+  if(d.code !== "200") throw new Error("QWeather code "+d.code);
+  return d;
+}
+
+async function loadWeather(){
+  const k = CONFIG.weather.apiKey;
+  if(!k){
+    console.info("[天气] 未配置 apiKey，使用内置演示数据");
+    return CONFIG.weather.fallback;
+  }
+  try{
+    const loc = CONFIG.weather.location;
+    const [now, h24, d7, sun] = await Promise.all([
+      fetchQWeather("/v7/weather/now", { location: loc, key: k }),
+      fetchQWeather("/v7/weather/24h", { location: loc, key: k }),
+      fetchQWeather("/v7/weather/7d",  { location: loc, key: k }),
+      fetchQWeather("/v7/astronomy/sun", { location: loc, key: k })
+    ]);
+    return {
+      now: now.now,
+      today: d7.daily[0],
+      daily: d7.daily,
+      sun: sun.sun,
+      hourly: h24.hourly
+    };
+  }catch(e){
+    console.warn("[天气] 请求失败，使用演示数据：", e.message);
+    return CONFIG.weather.fallback;
+  }
+}
+
+function renderWeather(data){
+  // 当前
+  const n = data.now;
+  $("wCurrTemp").textContent = `${n.temp}°`;
+  $("wCurrText").innerHTML = `${qweatherIcon(n.icon)} ${n.text}`;
+  $("wCurrFeel").textContent = `体感 ${n.feelsLike}°`;
+  // 网格
+  const tMax = (data.today && data.today.tempMax) || "--";
+  const tMin = (data.today && data.today.tempMin) || "--";
+  // $("wHumidity").textContent  = `${n.humidity}%`;
+  $("wWind").textContent      = `${n.windDir} ${n.windScale}级 ${n.windSpeed}km/h`;
+//   $("wPrecip").textContent    = `${n.precip} mm`;
+  // 降水概率（取 24h 第一个有 pop 的值，作为"当前降水概率"）
+  let pop = "--";
+  if(data.hourly && data.hourly[0] && data.hourly[0].pop) pop = `${data.hourly[0].pop}%`;
+  $("wPop").textContent       = pop;
+  $("wMaxMin").textContent     = `${tMax}° / ${tMin}°`;
+  if(data.sun){
+    const sr = data.sun.sunrise || data.sun.rise || "--";
+    const ss = data.sun.sunset  || data.sun.set   || "--";
+    $("wSun").textContent = `${sr} / ${ss}`;
+  }
+  // 24h 列表
+  const list = $("w24hList");
+  list.innerHTML = "";
+  if(data.hourly && data.hourly.length){
+    data.hourly.slice(0,24).forEach(h=>{
+      // fxTime 形如 "2025-10-04T13:00+08:00"
+      const t = (h.fxTime || h.time || "").split("T")[1]?.split("+")[0]?.slice(0,5) || "";
+      const row = document.createElement("div"); row.className="w-24h-item";
+      row.innerHTML = `
+        <span class="h-time">${t}</span>
+        <span class="h-icon">${qweatherIcon(h.icon)}</span>
+        <span class="h-text">${h.text}</span>
+        <span class="h-temp">${h.temp}°</span>
+        <span class="h-pop">${h.pop?h.pop+"%":""}</span>`;
+      list.appendChild(row);
+    });
+    
+  }else{
+    list.innerHTML = '<div class="loading">无 24h 数据</div>';
+  }
+  // 同步给日历的 daily 数据
+  return { daily: data.daily || [] };
+}
+
+/* =========================================================================
+ *  背景：风景图轮播（wp.upx8.com 风景壁纸 + Lorem Picsum 降级）
+ * ========================================================================= */
+let bgCurrentUrl = null;
+function applyBackground(url, credit){
+  if(!url || url === bgCurrentUrl){
+    console.log("[背景] 跳过：URL 未变化", url);
+    return;
+  }
+  console.log("[背景] 预加载：", url);
+  // 预加载图片，避免闪烁
+  const img = new Image();
+  img.onload = ()=>{
+    console.log("[背景] 加载成功 ✓", url);
+    $("bgLayer").style.backgroundImage = `url("${url}")`;
+    $("bgLayer").classList.add("show");
+    $("bgCredit").textContent = credit ? `背景图源：${credit}` : "";
+    bgCurrentUrl = url;
+  };
+  img.onerror = ()=>{
+    console.warn("[背景] 图片加载失败 ✗", url);
+  };
+  img.src = url;
+}
+async function refreshBackground(){
+  const cfg = CONFIG.background;
+  console.log("[背景] 开始刷新...", new Date().toLocaleTimeString());
+  // 主源：wp.upx8.com 风景壁纸 JSON
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 10000);
+    const res = await fetch(cfg.primary, { signal: ctrl.signal });
+    clearTimeout(t);
+    console.log("[背景] 主源响应 HTTP", res.status);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const json = await res.json();
+    console.log("[背景] 主源JSON:", json);
+    const parsed = cfg.primaryParser(json);
+    if(parsed && parsed.url){
+      applyBackground(parsed.url, parsed.credit);
+      return;
+    }
+    throw new Error("主源解析失败");
+  }catch(e){
+    console.warn("[背景] 主源失败，使用降级源：", e.message);
+  }
+  // 降级源：Lorem Picsum 直链（带随机参数避免缓存）
+  const fb = cfg.fallback + "?t=" + Date.now();
+  applyBackground(fb, cfg.fallbackCredit);
+}
+
+/* =========================================================================
+ *  启动
+ * ========================================================================= */
+async function init(){
+  // 立即触发：时间、名言、定时文字、背景
+  refreshDatetime();
+  refreshQuote();
+  refreshSchedule();
+  refreshBackground();
+  // 定时器
+  setInterval(refreshDatetime, CONFIG.datetime.updateIntervalMs);
+  setInterval(refreshQuote,     CONFIG.quote.intervalMs);
+  setInterval(refreshSchedule,  60 * 1000);          // 定时文字每分钟检查一次
+  setInterval(refreshBackground, CONFIG.background.intervalMs);  // 背景每小时换一张
+
+  // 天气 + 日历
+  try{
+    const wData = await loadWeather();
+    const calData = renderWeather(wData);
+    await renderCalendar(calData);
+  }catch(e){
+    console.error("初始化失败：", e);
+    await renderCalendar(null);
+  }
+  // 天气定时刷新
+  setInterval(async ()=>{
+    try{
+      const wData = await loadWeather();
+      const calData = renderWeather(wData);
+      await renderCalendar(calData);
+    }catch(e){ console.warn("天气刷新失败：", e); }
+  }, CONFIG.weather.updateIntervalMs);
+}
+
+init();
+</script>
+</body>
+</html>
